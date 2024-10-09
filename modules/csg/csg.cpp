@@ -280,13 +280,15 @@ void CSGBrush::copy_from(const CSGBrush &p_brush, const Transform3D &p_xform) {
 
 // CSGBrushOperation
 
-void CSGBrushOperation::merge_brushes(Operation p_operation, const CSGBrush &p_brush_a, const CSGBrush &p_brush_b, CSGBrush &r_merged_brush, float p_vertex_snap) {
+bool CSGBrushOperation::merge_brushes(Operation p_operation, const CSGBrush &p_brush_a, const CSGBrush &p_brush_b, CSGBrush &r_merged_brush, float p_vertex_snap) {
 	// Check for face collisions and add necessary faces.
 	Build2DFaceCollection build2DFaceCollection;
 	for (int i = 0; i < p_brush_a.faces.size(); i++) {
 		for (int j = 0; j < p_brush_b.faces.size(); j++) {
 			if (p_brush_a.faces[i].aabb.intersects_inclusive(p_brush_b.faces[j].aabb)) {
-				update_faces(p_brush_a, i, p_brush_b, j, build2DFaceCollection, p_vertex_snap);
+				bool success = update_faces(p_brush_a, i, p_brush_b, j, build2DFaceCollection, p_vertex_snap);
+				ERR_FAIL_COND_V_MSG(!success, false,
+						"qeaml: CSGBrushOperation::update_faces failed.");
 			}
 		}
 	}
@@ -460,6 +462,8 @@ void CSGBrushOperation::merge_brushes(Operation p_operation, const CSGBrush &p_b
 	for (const KeyValue<Ref<Material>, int> &E : mesh_merge.materials) {
 		r_merged_brush.materials.write[E.value] = E.key;
 	}
+
+	return true;
 }
 
 // CSGBrushOperation::MeshMerge
@@ -1423,7 +1427,7 @@ CSGBrushOperation::Build2DFaces::Build2DFaces(const CSGBrush &p_brush, int p_fac
 	faces.push_back(face);
 }
 
-void CSGBrushOperation::update_faces(const CSGBrush &p_brush_a, const int p_face_idx_a, const CSGBrush &p_brush_b, const int p_face_idx_b, Build2DFaceCollection &p_collection, float p_vertex_snap) {
+bool CSGBrushOperation::update_faces(const CSGBrush &p_brush_a, const int p_face_idx_a, const CSGBrush &p_brush_b, const int p_face_idx_b, Build2DFaceCollection &p_collection, float p_vertex_snap) {
 	Vector3 vertices_a[3] = {
 		p_brush_a.faces[p_face_idx_a].vertices[0],
 		p_brush_a.faces[p_face_idx_a].vertices[1],
@@ -1452,13 +1456,14 @@ void CSGBrushOperation::update_faces(const CSGBrush &p_brush_a, const int p_face
 		has_degenerate = true;
 	}
 	if (has_degenerate) {
-		return;
+		return true;
 	}
 
 	// Ensure B has points either side of or in the plane of A.
 	int over_count = 0, under_count = 0;
 	Plane plane_a(vertices_a[0], vertices_a[1], vertices_a[2]);
-	ERR_FAIL_COND_MSG(plane_a.normal == Vector3(), "Couldn't form plane from Brush A face.");
+	ERR_FAIL_COND_V_MSG(plane_a.normal == Vector3(), false,
+			"qeaml: Couldn't form plane from Brush A face.");
 
 	for (int i = 0; i < 3; i++) {
 		if (plane_a.has_point(vertices_b[i])) {
@@ -1471,14 +1476,15 @@ void CSGBrushOperation::update_faces(const CSGBrush &p_brush_a, const int p_face
 	}
 	// If all points under or over the plane, there is no intersection.
 	if (over_count == 3 || under_count == 3) {
-		return;
+		return true;
 	}
 
 	// Ensure A has points either side of or in the plane of B.
 	over_count = 0;
 	under_count = 0;
 	Plane plane_b(vertices_b[0], vertices_b[1], vertices_b[2]);
-	ERR_FAIL_COND_MSG(plane_b.normal == Vector3(), "Couldn't form plane from Brush B face.");
+	ERR_FAIL_COND_V_MSG(plane_b.normal == Vector3(), false,
+			"qeaml: Couldn't form plane from Brush B face.");
 
 	for (int i = 0; i < 3; i++) {
 		if (plane_b.has_point(vertices_a[i])) {
@@ -1491,7 +1497,7 @@ void CSGBrushOperation::update_faces(const CSGBrush &p_brush_a, const int p_face
 	}
 	// If all points under or over the plane, there is no intersection.
 	if (over_count == 3 || under_count == 3) {
-		return;
+		return true;
 	}
 
 	// Check for intersection using the SAT theorem.
@@ -1528,7 +1534,7 @@ void CSGBrushOperation::update_faces(const CSGBrush &p_brush_a, const int p_face
 				real_t dmax = max_b - (min_a + max_a) * 0.5;
 
 				if (dmin > CMP_EPSILON || dmax < -CMP_EPSILON) {
-					return; // Does not contain zero, so they don't overlap.
+					return true; // Does not contain zero, so they don't overlap.
 				}
 			}
 		}
@@ -1544,4 +1550,6 @@ void CSGBrushOperation::update_faces(const CSGBrush &p_brush_a, const int p_face
 		p_collection.build2DFacesB[p_face_idx_b] = Build2DFaces(p_brush_b, p_face_idx_b, p_vertex_snap);
 	}
 	p_collection.build2DFacesB[p_face_idx_b].insert(p_brush_a, p_face_idx_a);
+
+	return true;
 }

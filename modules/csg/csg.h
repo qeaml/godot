@@ -69,7 +69,7 @@ struct CSGBrushOperation {
 		OPERATION_SUBTRACTION,
 	};
 
-	void merge_brushes(Operation p_operation, const CSGBrush &p_brush_a, const CSGBrush &p_brush_b, CSGBrush &r_merged_brush, float p_vertex_snap);
+	bool merge_brushes(Operation p_operation, const CSGBrush &p_brush_a, const CSGBrush &p_brush_b, CSGBrush &r_merged_brush, float p_vertex_snap);
 
 	struct MeshMerge {
 		struct Face {
@@ -198,7 +198,7 @@ struct CSGBrushOperation {
 		HashMap<int, Build2DFaces> build2DFacesB;
 	};
 
-	void update_faces(const CSGBrush &p_brush_a, const int p_face_idx_a, const CSGBrush &p_brush_b, const int p_face_idx_b, Build2DFaceCollection &p_collection, float p_vertex_snap);
+	bool update_faces(const CSGBrush &p_brush_a, const int p_face_idx_a, const CSGBrush &p_brush_b, const int p_face_idx_b, Build2DFaceCollection &p_collection, float p_vertex_snap);
 };
 
 #endif // CSG_H

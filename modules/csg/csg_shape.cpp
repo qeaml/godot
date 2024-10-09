@@ -201,20 +201,28 @@ CSGBrush *CSGShape3D::_get_brush() {
 
 				CSGBrushOperation bop;
 
+				bool success;
 				switch (child->get_operation()) {
 					case CSGShape3D::OPERATION_UNION:
-						bop.merge_brushes(CSGBrushOperation::OPERATION_UNION, *n, *nn2, *nn, snap);
+						success = bop.merge_brushes(CSGBrushOperation::OPERATION_UNION, *n, *nn2, *nn, snap);
 						break;
 					case CSGShape3D::OPERATION_INTERSECTION:
-						bop.merge_brushes(CSGBrushOperation::OPERATION_INTERSECTION, *n, *nn2, *nn, snap);
+						success = bop.merge_brushes(CSGBrushOperation::OPERATION_INTERSECTION, *n, *nn2, *nn, snap);
 						break;
 					case CSGShape3D::OPERATION_SUBTRACTION:
-						bop.merge_brushes(CSGBrushOperation::OPERATION_SUBTRACTION, *n, *nn2, *nn, snap);
+						success = bop.merge_brushes(CSGBrushOperation::OPERATION_SUBTRACTION, *n, *nn2, *nn, snap);
 						break;
 				}
 				memdelete(n);
 				memdelete(nn2);
 				n = nn;
+				if (!success) {
+					const char *this_name = String(get_name()).utf8().get_data();
+					const char *child_name = String(child->get_name()).utf8().get_data();
+					OS::get_singleton()->print("qeaml: Merging CSGShape3D %s and its child %s.\n",
+							this_name, child_name);
+					ERR_PRINT("qeaml: CSGBrushOperation::merge_brushes failed.");
+				}
 			}
 		}
 
